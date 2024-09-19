@@ -38,7 +38,7 @@ jobs:
 
       - name: Setup Azure Storage for Terraform Backend
         run:
-          ansible-playbook pull-request-playbook.yml
+          ansible-playbook -v pull-request-playbook.yml
         env:
           RESOURCE_GROUP: ${{ secrets.AZ_RESOURCE_GROUP }}
           STORAGE_ACCOUNT_NAME: ${{ secrets.AZ_STORAGE_ACCOUNT_NAME }}
