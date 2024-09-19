@@ -28,7 +28,7 @@ jobs:
 
       - name: Setup Ansible
         run:
-          ansible-galaxy collection install azure.azcollection
+          ansible-galaxy collection install azure.azcollection --force
 
       - name: Install dependecies 
         run: 
