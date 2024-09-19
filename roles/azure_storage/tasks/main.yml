@@ -11,10 +11,10 @@
     resource_group: "{{ resource_group }}"
     name: "{{ storage_account_name }}"
     location: "{{ location }}"
-    sku: Standard_LRS
-    kind: StorageV2
+    account_type: "{{ account_type }}"
+    kind: "StorageV2"
     enable_https_traffic_only: true
-    state: present
+    state: present 
   register: storage_account
 
 - name: Create Blob Container
@@ -22,5 +22,4 @@
     resource_group: "{{ resource_group }}"
     storage_account_name: "{{ storage_account_name }}"
     container_name: "{{ container_name }}"
-    public_access: None
     state: present
