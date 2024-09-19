@@ -37,8 +37,4 @@ resource "azurerm_kubernetes_cluster" "aks" {
     load_balancer_sku = "Standard"
     outbound_type     = "loadBalancer"
   }
-
-  role_based_access_control {
-    enabled = true
-  }
 }
