@@ -13,7 +13,7 @@
     location: "{{ location }}"
     account_type: "{{ account_type }}"
     kind: "StorageV2"
-    enable_https_traffic_only: true
+    https_only: true
     state: present 
   register: storage_account
 
