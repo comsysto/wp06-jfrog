@@ -1,0 +1,10 @@
+---
+- name: Deploy Azure Storage Infrastructure
+  hosts: localhost
+  roles:
+    - role: azure_storage
+      vars:
+        resource_group: "{{ lookup('env', 'RESOURCE_GROUP') | default('default-resource-group') }}"
+        storage_account_name: "{{ lookup('env', 'STORAGE_ACCOUNT_NAME') | default('defaultstorageaccount') }}"
+        container_name: "{{ lookup('env', 'CONTAINER_NAME') | default('defaultcontainer') }}"
+        location: "{{ lookup('env', 'LOCATION') | default('westeurope') }}"

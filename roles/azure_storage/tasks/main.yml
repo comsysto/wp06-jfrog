@@ -1,0 +1,26 @@
+---
+- name: Create Resource Group
+  azure.azcollection.azure_rm_resourcegroup:
+    name: "{{ resource_group }}"
+    location: "{{ location }}"
+    state: present
+  register: rg
+
+- name: Create Storage Account
+  azure.azcollection.azure_rm_storageaccount:
+    resource_group: "{{ resource_group }}"
+    name: "{{ storage_account_name }}"
+    location: "{{ location }}"
+    sku: Standard_LRS
+    kind: StorageV2
+    enable_https_traffic_only: true
+    state: present
+  register: storage_account
+
+- name: Create Blob Container
+  azure.azcollection.azure_rm_storageblob:
+    resource_group: "{{ resource_group }}"
+    storage_account_name: "{{ storage_account_name }}"
+    container_name: "{{ container_name }}"
+    public_access: None
+    state: present
