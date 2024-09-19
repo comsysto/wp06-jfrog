@@ -26,6 +26,10 @@ jobs:
         with:
           creds: ${{ secrets.AZ_CREDS }}
 
+      - name: Install dependencies
+        run: 
+          pip install azure-mgmt-resource azure-mgmt-storage msrestazure
+
       - name: Setup Ansible
         run:
           ansible-galaxy collection install azure.azcollection
