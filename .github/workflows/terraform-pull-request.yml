@@ -27,12 +27,14 @@ jobs:
           creds: ${{ secrets.AZ_CREDS }}
 
       - name: Setup Ansible
-        run:
+        run: >
+          pipx uninstall ansible-core &&
+          pip3 install ansible &&
           ansible-galaxy collection install azure.azcollection --force
 
       - name: Install dependecies 
         run: 
-          ls -lgia /opt/pipx/venvs/ansible-core && pip3 install -r ~/.ansible/collections/ansible_collections/azure/azcollection/requirements.txt
+          pip3 install -r ~/.ansible/collections/ansible_collections/azure/azcollection/requirements.txt
 
       - name: Setup Azure Storage for Terraform Backend
         run:
