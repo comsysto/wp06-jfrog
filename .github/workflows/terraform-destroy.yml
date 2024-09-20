@@ -1,0 +1,103 @@
+name: Destroy terraform 
+
+on:
+  workflow_dispatch:
+  
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  prepare:
+    concurrency:
+      group: storage 
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure Azure credentials
+        uses: azure/login@v2
+        with:
+         client-id: ${{ secrets.AZ_CLIENT_ID }} 
+         subscription-id: ${{ secrets.AZ_SUBSCRIPTION_ID }}
+         tenant-id: ${{ secrets.AZ_TENANT_ID }}
+
+      - name: Setup Ansible
+        run: >
+          pipx uninstall ansible-core &&
+          pip3 install ansible &&
+          ansible-galaxy collection install azure.azcollection --force
+
+      - name: Install dependecies 
+        run: 
+          pip3 install -r ~/.ansible/collections/ansible_collections/azure/azcollection/requirements.txt
+
+      - name: Setup Azure Storage for Terraform Backend
+        run:
+          ansible-playbook -v storage-playbook.yml
+        env:
+          RESOURCE_GROUP: ${{ secrets.AZ_RESOURCE_GROUP }}
+          STORAGE_ACCOUNT_NAME: ${{ secrets.AZ_STORAGE_ACCOUNT_NAME }}
+          CONTAINER_NAME: ${{ secrets.AZ_CONTAINER_NAME }}
+
+  destroy:
+    needs:
+      - prepare
+    env:
+      tf_actions_working_dir: terraform 
+      ARM_CLIENT_ID: ${{ secrets.AZ_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZ_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZ_TENANT_ID }}
+    defaults:
+      run:
+        working-directory: ./terraform
+    concurrency:
+      group: terraform 
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure Azure credentials
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZ_CLIENT_ID }} 
+          subscription-id: ${{ secrets.AZ_SUBSCRIPTION_ID }}
+          tenant-id: ${{ secrets.AZ_TENANT_ID }}
+     
+      - name: Configure Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.9.5
+      
+      - name: Generate backend configuration
+        run: |
+          echo "resource_group_name = \"$RESOURCE_GROUP\"" >> backend.hcl
+          echo "storage_account_name = \"$STORAGE_ACCOUNT_NAME\"" >> backend.hcl
+          echo "container_name = \"$CONTAINER_NAME\"" >> backend.hcl
+        env:
+          RESOURCE_GROUP: ${{ secrets.AZ_RESOURCE_GROUP }}
+          STORAGE_ACCOUNT_NAME: ${{ secrets.AZ_STORAGE_ACCOUNT_NAME }}
+          CONTAINER_NAME: ${{ secrets.AZ_CONTAINER_NAME }}
+
+      - name: Terraform Init
+        id: init
+        run: |
+          terraform init -backend-config=backend.hcl -lock-timeout=120s
+
+      - name: Terraform Validate
+        id: validate
+        run: |
+          terraform validate -no-color
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan -no-color -lock-timeout=120s
+  
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        run: terraform destroy -auto-approve -input=false -lock-timeout=120s
+      
