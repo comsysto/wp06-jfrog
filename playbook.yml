@@ -6,8 +6,10 @@
       vars:
         namespace: ingress-nginx-1
         release_name: ingress-nginx-1
+        ingress_class_name: nginx-1
 
     - role: nginx_ingress
       vars:
         namespace: ingress-nginx-2
         release_name: ingress-nginx-2
+        ingress_class_name: nginx-2
