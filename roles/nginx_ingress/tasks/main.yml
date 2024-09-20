@@ -1,13 +1,8 @@
 ---
 - name: Add the ingress-nginx Helm repository
-  community.kubernetes.helm_repo:
-    name: ingress-nginx
+  community.kubernetes.helm_repository:
+    repo_name: ingress-nginx
     repo_url: https://kubernetes.github.io/ingress-nginx
-
-- name: Update Helm repositories
-  community.kubernetes.helm:
-    name: ingress-nginx
-    update_repo_cache: true
 
 - name: Install the ingress-nginx chart
   community.kubernetes.helm:
@@ -15,8 +10,9 @@
     chart_ref: ingress-nginx/ingress-nginx
     release_name: "{{ release_name }}"
     create_namespace: true
-    namespace: "{{ namespace }}"
-    values:
+    release_namespace: "{{ namespace }}"
+    update_repo_cache: true
+    release_values:
       controller:
         service:
           annotations:
