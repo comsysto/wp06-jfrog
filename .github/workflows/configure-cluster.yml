@@ -1,0 +1,60 @@
+name: Configure AKS cluster 
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'roles/**'
+      - 'playbook.yml'
+      - '!**/*.md'
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  configure:
+    concurrency:
+      group: kubeconfig 
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Ansible
+        run: | 
+          pipx uninstall ansible-core 
+          pip3 install ansible 
+          ansible-galaxy collection install azure.azcollection community.kubernetes --force
+
+      - name: Install Dependecies 
+        run: | 
+          pip3 install -r ~/.ansible/collections/ansible_collections/azure/azcollection/requirements.txt
+          pip3 install -r ~/.ansible/collections/ansible_collections/community/kubernetes/requirements.txt
+
+      - name: Configure Azure Credentials
+        uses: azure/login@v2
+        with:
+         client-id: ${{ secrets.AZ_CLIENT_ID }} 
+         subscription-id: ${{ secrets.AZ_SUBSCRIPTION_ID }}
+         tenant-id: ${{ secrets.AZ_TENANT_ID }}
+
+      - name: Setup kubectl 
+        uses: azure/setup-kubectl@v3
+
+      - name: Setup kubelogin
+        uses: azure/use-kubelogin@v1
+
+      - name: Set Cluster Context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: wp06cluster-rg
+          cluster-name: wp06cluster
+          admin: true
+      
+      - name: List all pods
+        run: |
+          kubectl get pods --all-namespaces
