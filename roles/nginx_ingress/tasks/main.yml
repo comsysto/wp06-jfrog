@@ -1,0 +1,24 @@
+---
+- name: Add the ingress-nginx Helm repository
+  community.kubernetes.helm_repo:
+    name: ingress-nginx
+    repo_url: https://kubernetes.github.io/ingress-nginx
+
+- name: Update Helm repositories
+  community.kubernetes.helm:
+    name: ingress-nginx
+    update_repo_cache: true
+
+- name: Install the ingress-nginx chart
+  community.kubernetes.helm:
+    name: "{{ release_name }}"
+    chart_ref: ingress-nginx/ingress-nginx
+    release_name: "{{ release_name }}"
+    create_namespace: true
+    namespace: "{{ namespace }}"
+    values:
+      controller:
+        service:
+          annotations:
+            service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: "{{ azure_lb_health_probe_path }}"
+          externalTrafficPolicy: "{{ external_traffic_policy }}"

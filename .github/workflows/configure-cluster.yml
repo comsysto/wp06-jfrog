@@ -57,6 +57,7 @@ jobs:
           cluster-name: wp06cluster
           admin: true
       
-      - name: List all pods
+      - name: Execute Ansible Playbooks
         run: |
-          kubectl get pods --all-namespaces
+          ansible-playbook -v playbook.yml
+

@@ -1,0 +1,13 @@
+---
+- name: Deploy multiple NGINX ingress controllers
+  hosts: localhost
+  roles:
+    - role: nginx_ingress
+      vars:
+        namespace: ingress-nginx-1
+        release_name: ingress-nginx-1
+
+    - role: nginx_ingress
+      vars:
+        namespace: ingress-nginx-2
+        release_name: ingress-nginx-2

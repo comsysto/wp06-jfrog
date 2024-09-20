@@ -1,0 +1,5 @@
+---
+namespace: ingress-nginx
+release_name: ingress-nginx
+azure_lb_health_probe_path: /healthz
+external_traffic_policy: Local
