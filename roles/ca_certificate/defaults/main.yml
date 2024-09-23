@@ -1,0 +1,5 @@
+---
+ca_namespace: certificates # namespace where the secret is stored
+ca_secret_name: root-ca-secret # name of the secret resource
+root_ca_key: rootCA.key # CA key filename 
+root_ca_cert: rootCA.crt # CA certificate filename

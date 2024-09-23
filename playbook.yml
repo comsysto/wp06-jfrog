@@ -13,3 +13,13 @@
         namespace: ingress-nginx-2
         release_name: ingress-nginx-2
         ingress_class_name: nginx-2
+- name: Deploy artifactory with mTLS configurations 
+  hosts: localhost
+  connection: local
+  gather_facts: false 
+  roles:
+    - ca_certificate
+    - tls_certificate
+    - artifactory_deploy
+    - nginx_ingress_mtls
+
