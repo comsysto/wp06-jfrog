@@ -53,5 +53,4 @@
     values_files:
       - "{{ item.name }}-values.yaml"
     create_namespace: false
-    wait: true
 
