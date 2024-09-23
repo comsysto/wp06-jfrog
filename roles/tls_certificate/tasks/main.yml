@@ -5,9 +5,11 @@
   register: root_ca_cert_file
 
 - name: Retrieve Root CA certificate from Kubernetes
-  command: >
-    kubectl get secret {{ ca_secret_name }} -n {{ ca_namespace }}
+  shell: |
+    kubectl get secret {{ ca_secret_name }} -n {{ ca_namespace }} \
     -o jsonpath="{.data['ca\.crt']}" | base64 --decode > {{ root_ca_cert }}
+  args:
+    executable: /bin/bash
   when: not root_ca_cert_file.stat.exists
 
 - name: Check if client certificate exists
