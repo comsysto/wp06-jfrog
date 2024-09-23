@@ -1,0 +1,51 @@
+---
+- name: Create Namespace for CA
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ ca_namespace }}"
+
+- name: Check if Root CA secret exists
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    namespace: "{{ ca_namespace }}"
+    name: "{{ ca_secret_name }}"
+  register: ca_secret
+  failed_when: false
+
+- name: Set root_ca_exists fact
+  set_fact:
+    root_ca_exists: "{{ ca_secret.resources | length > 0 }}"
+
+- name: Generate Root CA Key
+  command: openssl genrsa -out {{ root_ca_key }} 2048
+  args:
+    creates: "{{ root_ca_key }}"
+  when: not root_ca_exists
+
+- name: Generate Root CA Certificate
+  command: >
+    openssl req -x509 -new -nodes -key {{ root_ca_key }}
+    -sha256 -days 1024 -out {{ root_ca_cert }}
+    -subj "/CN=MyRootCA"
+  args:
+    creates: "{{ root_ca_cert }}"
+  when: not root_ca_exists
+
+- name: Create Root CA Secret
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ ca_secret_name }}"
+        namespace: "{{ ca_namespace }}"
+      data:
+        ca.crt: "{{ lookup('file', root_ca_cert) | b64encode }}"
+  when: not root_ca_exists
+

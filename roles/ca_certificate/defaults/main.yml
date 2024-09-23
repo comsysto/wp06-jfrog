@@ -1,0 +1,5 @@
+---
+ca_namespace: certificates
+ca_secret_name: root-ca-secret
+root_ca_key: rootCA.key
+root_ca_cert: rootCA.crt
