@@ -24,7 +24,6 @@
     dest: "{{ item.name }}-values.yaml"
     content: |
       artifactory:
-        ossEnabled: true
         replicaCount: 1
         service:
           type: ClusterIP
@@ -37,7 +36,9 @@
       ingress:
         enabled: false
       nginx:
-        enabled: false
+        enabled: true
+        service:
+          type: ClusterIP
 
 - name: Deploy Artifactory Instances with Helm
   loop: "{{ artifactory_instances }}"
@@ -46,7 +47,7 @@
   community.kubernetes.helm:
     name: "{{ item.name }}"
     release_name: "{{ item.name }}"
-    chart_ref: jfrog/artifactory
+    chart_ref: jfrog/artifactory-oss
     release_namespace: "{{ item.namespace }}"
     update_repo_cache: true
     values_files:
