@@ -1,0 +1,7 @@
+---
+- name: Create Ingress Resources for Artifactory Instances
+  ansible.builtin.include_tasks: create_ingress.yml
+  loop: "{{ artifactory_instances }}"
+  loop_control:
+    loop_var: artifactory_instance
+    label: "{{ artifactory_instance.name }}"

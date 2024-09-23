@@ -21,4 +21,5 @@
     - ca_certificate
     - tls_certificate
     - artifactory_deploy
+    - nginx_ingress_mtls
 

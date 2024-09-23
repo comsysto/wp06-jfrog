@@ -1,0 +1,48 @@
+
+---
+- name: Get the Nginx service name
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Service
+    namespace: "{{ artifactory_instance.namespace }}"
+    label_selectors:
+      - "app={{ artifactory_instance.name }}-artifactory-nginx"
+  register: nginx_service_info
+
+- name: Set backend service name and port
+  set_fact:
+    backend_service_name: "{{ nginx_service_info.resources[0].metadata.name }}"
+    backend_service_port: "{{ nginx_service_info.resources[0].spec.ports[0].port }}"
+
+- name: Create Ingress resource
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: "{{ artifactory_instance.name }}-ingress"
+        namespace: "{{ artifactory_instance.namespace }}"
+        annotations:
+          kubernetes.io/ingress.class: "{{ artifactory_instance.ingress_class }}"
+          nginx.ingress.kubernetes.io/auth-tls-verify-client: "on"
+          nginx.ingress.kubernetes.io/auth-tls-secret: "{{ ca_namespace }}/{{ ca_secret_name }}"
+          nginx.ingress.kubernetes.io/auth-tls-verify-depth: "1"
+          nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      spec:
+        tls:
+          - hosts:
+              - "{{ artifactory_instance.host }}"
+            secretName: "{{ artifactory_instance.name }}-tls-secret"
+        rules:
+          - host: "{{ artifactory_instance.host }}"
+            http:
+              paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: "{{ backend_service_name }}"
+                      port:
+                        number: "{{ backend_service_port }}"
+
