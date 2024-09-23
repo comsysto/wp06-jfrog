@@ -21,22 +21,42 @@
   set_fact:
     root_ca_exists: "{{ ca_secret.resources | length > 0 }}"
 
-- name: Generate Root CA Key
-  command: openssl genrsa -out {{ root_ca_key }} 2048
-  args:
-    creates: "{{ root_ca_key }}"
+- name: Retrieve Root CA key and certificate from Kubernetes if secret exists
+  block:
+    - name: Decode and write Root CA key to file
+      copy:
+        content: "{{ ca_secret.resources[0].data['rootCA.key'] | b64decode }}"
+        dest: "{{ root_ca_key }}"
+        mode: '0600'
+
+    - name: Decode and write Root CA certificate to file
+      copy:
+        content: "{{ ca_secret.resources[0].data['rootCA.crt'] | b64decode }}"
+        dest: "{{ root_ca_cert }}"
+  when: root_ca_exists
+
+- name: Generate Root CA Key and Certificate if not exists
+  block:
+    - name: Generate Root CA Key
+      command: openssl genrsa -out {{ root_ca_key }} 2048
+      args:
+        creates: "{{ root_ca_key }}"
+
+    - name: Set permissions on Root CA key
+      file:
+        path: "{{ root_ca_key }}"
+        mode: '0600'
+
+    - name: Generate Root CA Certificate
+      command: >
+        openssl req -x509 -new -nodes -key {{ root_ca_key }}
+        -sha256 -days 1024 -out {{ root_ca_cert }}
+        -subj "/CN=MyRootCA"
+      args:
+        creates: "{{ root_ca_cert }}"
   when: not root_ca_exists
 
-- name: Generate Root CA Certificate
-  command: >
-    openssl req -x509 -new -nodes -key {{ root_ca_key }}
-    -sha256 -days 1024 -out {{ root_ca_cert }}
-    -subj "/CN=MyRootCA"
-  args:
-    creates: "{{ root_ca_cert }}"
-  when: not root_ca_exists
-
-- name: Create Root CA Secret
+- name: Create or Update Root CA Secret with key and certificate
   kubernetes.core.k8s:
     state: present
     definition:
@@ -46,6 +66,6 @@
         name: "{{ ca_secret_name }}"
         namespace: "{{ ca_namespace }}"
       data:
-        ca.crt: "{{ lookup('file', root_ca_cert) | b64encode }}"
+        rootCA.key: "{{ lookup('file', root_ca_key) | b64encode }}"
+        rootCA.crt: "{{ lookup('file', root_ca_cert) | b64encode }}"
   when: not root_ca_exists
-
