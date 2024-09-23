@@ -20,4 +20,5 @@
   roles:
     - ca_certificate
     - tls_certificate
+    - artifactory_deploy
 

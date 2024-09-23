@@ -1,0 +1,8 @@
+---
+artifactory_instances:
+  - name: artifactory1
+    namespace: artifactory-instance1
+    host: artifactory1.example.com
+  - name: artifactory2
+    namespace: artifactory-instance2
+    host: artifactory2.example.com

@@ -3,6 +3,8 @@ CA Certificate
 
 This role handles the creation and management of the Root CA certificate. It checks if the CA exists and creates it if it doesn't. It also stores the CA certificate in a dedicated namespace.
 
+Note: CA key is stored as a Secret resource which is not safe. Ideally in production environment, such key would be stored on solution such as Hashicorp Vault.
+
 Requirements
 ------------
 
