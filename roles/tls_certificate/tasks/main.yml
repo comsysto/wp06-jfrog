@@ -1,0 +1,45 @@
+---
+- name: Check if Root CA certificate exists locally
+  stat:
+    path: "{{ root_ca_cert }}"
+  register: root_ca_cert_file
+
+- name: Retrieve Root CA certificate from Kubernetes
+  command: >
+    kubectl get secret {{ ca_secret_name }} -n {{ ca_namespace }}
+    -o jsonpath="{.data['ca\.crt']}" | base64 --decode > {{ root_ca_cert }}
+  when: not root_ca_cert_file.stat.exists
+
+- name: Check if client certificate exists
+  stat:
+    path: "{{ client_cert_crt }}"
+  register: client_cert_file
+
+- name: Generate Client Key
+  command: openssl genrsa -out {{ client_cert_key }} 2048
+  args:
+    creates: "{{ client_cert_key }}"
+  when: not client_cert_file.stat.exists
+
+- name: Generate Client CSR
+  command: >
+    openssl req -new -key {{ client_cert_key }} -out client.csr
+    -subj "/CN=ArtifactoryClient"
+  args:
+    creates: client.csr
+  when: not client_cert_file.stat.exists
+
+- name: Generate Client Certificate
+  command: >
+    openssl x509 -req -in client.csr -CA {{ root_ca_cert }}
+    -CAkey {{ root_ca_key }} -CAcreateserial -out {{ client_cert_crt }}
+    -days 500 -sha256
+  args:
+    creates: "{{ client_cert_crt }}"
+  when: not client_cert_file.stat.exists
+
+- name: Loop over Artifactory instances
+  include_tasks: server_certificates.yml
+  loop: "{{ artifactory_instances }}"
+  loop_control:
+    loop_var: artifactory_instance

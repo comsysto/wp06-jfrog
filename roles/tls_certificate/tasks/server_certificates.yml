@@ -1,0 +1,51 @@
+---
+- name: Check if TLS secret exists
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    namespace: "{{ artifactory_instance.namespace }}"
+    name: "{{ artifactory_instance.name }}-tls-secret"
+  register: tls_secret
+  failed_when: false
+
+- name: Set server_cert_exists fact
+  set_fact:
+    server_cert_exists: "{{ tls_secret.resources | length > 0 }}"
+
+- name: Generate Server Key
+  command: openssl genrsa -out {{ artifactory_instance.name }}.key 2048
+  args:
+    creates: "{{ artifactory_instance.name }}.key"
+  when: not server_cert_exists
+
+- name: Generate CSR
+  command: >
+    openssl req -new -key {{ artifactory_instance.name }}.key -out {{ artifactory_instance.name }}.csr
+    -subj "/CN={{ artifactory_instance.host }}"
+  args:
+    creates: "{{ artifactory_instance.name }}.csr"
+  when: not server_cert_exists
+
+- name: Generate Server Certificate
+  command: >
+    openssl x509 -req -in {{ artifactory_instance.name }}.csr -CA {{ root_ca_cert }}
+    -CAkey {{ root_ca_key }} -CAcreateserial -out {{ artifactory_instance.name }}.crt
+    -days 500 -sha256
+  args:
+    creates: "{{ artifactory_instance.name }}.crt"
+  when: not server_cert_exists
+
+- name: Create TLS Secret for Artifactory Instance
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ artifactory_instance.name }}-tls-secret"
+        namespace: "{{ artifactory_instance.namespace }}"
+      type: kubernetes.io/tls
+      data:
+        tls.crt: "{{ lookup('file', artifactory_instance.name + '.crt') | b64encode }}"
+        tls.key: "{{ lookup('file', artifactory_instance.name + '.key') | b64encode }}"
+  when: not server_cert_exists
