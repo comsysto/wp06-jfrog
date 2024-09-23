@@ -1,8 +1,10 @@
+
 ---
 - name: Add JFrog Helm Repository
-  community.kubernetes.helm_repository:
-    repo_name: jfrog
-    repo_url: https://charts.jfrog.io
+  command: helm repo add jfrog https://charts.jfrog.io
+  args:
+    creates: ~/.cache/helm/repository/jfrog-index.yaml
+  changed_when: false
 
 - name: Create Namespaces for Artifactory Instances
   kubernetes.core.k8s:
@@ -16,6 +18,95 @@
   loop_control:
     label: "{{ item.namespace }}"
 
+- name: Create TLS Secret for Nginx Sidecar
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ item.name }}-nginx-tls-secret"
+        namespace: "{{ item.namespace }}"
+      type: kubernetes.io/tls
+      data:
+        tls.crt: "{{ lookup('file', 'certs/{{ item.name }}.crt') | b64encode }}"
+        tls.key: "{{ lookup('file', 'certs/{{ item.name }}.key') | b64encode }}"
+  loop: "{{ artifactory_instances }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create CA Secret in Artifactory Namespace
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: root-ca-secret
+        namespace: "{{ item.namespace }}"
+      data:
+        ca.crt: "{{ lookup('file', 'certs/rootCA.crt') | b64encode }}"
+  loop: "{{ artifactory_instances }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create Nginx ConfigMap
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{ item.name }}-nginx-config"
+        namespace: "{{ item.namespace }}"
+      data:
+        nginx.conf: |
+          user  nginx;
+          worker_processes  1;
+          error_log  /var/log/nginx/error.log warn;
+          pid        /var/run/nginx.pid;
+
+          events {
+              worker_connections  1024;
+          }
+
+          http {
+              include       /etc/nginx/mime.types;
+              default_type  application/octet-stream;
+
+              log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                                '$status $body_bytes_sent "$http_referer" '
+                                '"$http_user_agent" "$http_x_forwarded_for"';
+
+              access_log  /var/log/nginx/access.log  main;
+
+              sendfile        on;
+              keepalive_timeout  65;
+
+              server {
+                  listen       8443 ssl;
+                  server_name  localhost;
+
+                  ssl_certificate           /etc/nginx/tls/tls.crt;
+                  ssl_certificate_key       /etc/nginx/tls/tls.key;
+                  ssl_client_certificate    /etc/nginx/ca/ca.crt;
+                  ssl_verify_client         on;
+
+                  ssl_protocols             TLSv1.2 TLSv1.3;
+                  ssl_ciphers               HIGH:!aNULL:!MD5;
+
+                  location / {
+                      proxy_pass              http://127.0.0.1:8081;
+                      proxy_set_header        Host $host;
+                      proxy_set_header        X-Real-IP $remote_addr;
+                      proxy_set_header        X-Forwarded-For $proxy_add_x_forwarded_for;
+                  }
+              }
+          }
+  loop: "{{ artifactory_instances }}"
+  loop_control:
+    label: "{{ item.name }}"
+
 - name: Create Custom Values Files
   loop: "{{ artifactory_instances }}"
   loop_control:
@@ -23,34 +114,83 @@
   copy:
     dest: "{{ item.name }}-values.yaml"
     content: |
+      {{ lookup('file', 'values.yaml') | indent(6) }}
+
+- name: Adjust Values File for OSS Deployment and Nginx Sidecar
+  blockinfile:
+    path: "{{ item.name }}-values.yaml"
+    block: |
       artifactory:
-        replicaCount: 1
-        service:
-          type: ClusterIP
-          port: 8081
-        resources: {}
-        livenessProbe:
+        nginx:
           enabled: false
-        readinessProbe:
-          enabled: false
-      ingress:
-        enabled: false
-      nginx:
-        enabled: true
-        service:
-          type: ClusterIP
+        customSidecarContainers: |
+          - name: nginx-sidecar
+            image: nginx:1.21-alpine
+            ports:
+              - containerPort: 8443
+            volumeMounts:
+              - name: nginx-config
+                mountPath: /etc/nginx/nginx.conf
+                subPath: nginx.conf
+              - name: nginx-tls
+                mountPath: /etc/nginx/tls
+              - name: nginx-ca
+                mountPath: /etc/nginx/ca
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "50m"
+              limits:
+                memory: "256Mi"
+                cpu: "200m"
+        customVolumes: |
+          - name: nginx-config
+            configMap:
+              name: "{{ item.name }}-nginx-config"
+          - name: nginx-tls
+            secret:
+              secretName: "{{ item.name }}-nginx-tls-secret"
+          - name: nginx-ca
+            secret:
+              secretName: "root-ca-secret"
+  loop: "{{ artifactory_instances }}"
+  loop_control:
+    label: "{{ item.name }}"
 
 - name: Deploy Artifactory Instances with Helm
   loop: "{{ artifactory_instances }}"
   loop_control:
     label: "{{ item.name }}"
   community.kubernetes.helm:
-    name: "{{ item.name }}"
+    state: present
     release_name: "{{ item.name }}"
-    chart_ref: jfrog/artifactory-oss
+    chart_ref: jfrog/artifactory
     release_namespace: "{{ item.namespace }}"
     update_repo_cache: true
     values_files:
       - "{{ item.name }}-values.yaml"
     create_namespace: false
 
+- name: Create Service for Nginx Sidecar
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: "{{ item.name }}-nginx-service"
+        namespace: "{{ item.namespace }}"
+        labels:
+          app: "{{ item.name }}"
+          component: nginx-sidecar
+      spec:
+        selector:
+          app: "{{ item.name }}"
+        ports:
+          - protocol: TCP
+            port: 8443
+            targetPort: 8443
+            name: https
+  loop: "{{ artifactory_instances }}"
+  loop_control:
+    label: "{{ item.name }}"
