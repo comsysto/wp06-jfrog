@@ -49,7 +49,8 @@
     chart_ref: jfrog/artifactory
     release_namespace: "{{ item.namespace }}"
     update_repo_cache: true
-    values_file: "{{ item.name }}-values.yaml"
+    values_files:
+      - "{{ item.name }}-values.yaml"
     create_namespace: false
     wait: true
 
