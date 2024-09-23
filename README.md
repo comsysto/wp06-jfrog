@@ -38,7 +38,7 @@ The deployment consists of:
  - `AZ_RESOURCE_GROUP`: New resource group will be created for Terraform state file. 
  - `AZ_CONTAINER_NAME`: Name of container which will be created and holds state file. 
 
- ## Playform deployment
+ ## Platform deployment
  The deployment of Azure Kubernetes Cluster is managed trough `.github/workflows/terraform.yml` GitHub workflow which setups all the required software (such as Ansible) and executes Ansible and Terraform to provision the cluster. Provisioning can be also previewed by creating a pull request, which is handled with `.github/workflows/terraform-pull-request.yml`. Mentioned workflow will output a Terraform plan in the pull requests comment section.
 
  Detailed information about the Terraform configuration and scripts can be found in the `terraform` folder. 
