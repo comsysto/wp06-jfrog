@@ -28,7 +28,7 @@ jobs:
         run: | 
           pipx uninstall ansible-core 
           pip3 install ansible 
-          ansible-galaxy collection install azure.azcollection community.kubernetes --force
+          ansible-galaxy collection install azure.azcollection community.kubernetes community.general kubernetes.core --force
 
       - name: Install Dependecies 
         run: | 
