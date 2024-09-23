@@ -4,13 +4,33 @@
     path: "{{ root_ca_cert }}"
   register: root_ca_cert_file
 
-- name: Retrieve Root CA certificate from Kubernetes
-  shell: |
-    kubectl get secret {{ ca_secret_name }} -n {{ ca_namespace }} \
-    -o jsonpath="{.data['ca\.crt']}" | base64 --decode > {{ root_ca_cert }}
-  args:
-    executable: /bin/bash
+- name: Retrieve Root CA secret from Kubernetes
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ ca_secret_name }}"
+    namespace: "{{ ca_namespace }}"
+  register: ca_secret_info
+
+- name: Decode and write Root CA certificate to file
+  copy:
+    content: "{{ ca_secret_info.resources[0].data['ca.crt'] | b64decode }}"
+    dest: "{{ root_ca_cert }}"
   when: not root_ca_cert_file.stat.exists
+
+# - name: Retrieve Root CA certificate from Kubernetes
+#   shell: |
+#     kubectl get secret {{ ca_secret_name }} -n {{ ca_namespace }} \
+#     -o jsonpath="{.data['ca\.crt']}" | base64 --decode > {{ root_ca_cert }}
+#   args:
+#     executable: /bin/bash
+#   when: not root_ca_cert_file.stat.exists
+
+- name: Debug List all files 
+  shell: |
+    ls -lgia
+  args:
+    executable: /bin/bash 
 
 - name: Check if client certificate exists
   stat:
